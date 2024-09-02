@@ -5,15 +5,13 @@
 #include <algorithm>
 #include <iomanip>
 
-using namespace std;
-
 struct PriceData {
-    string timestamp;
+    std::string timestamp;
     double price;
 };
 
 struct Candle {
-    string time;
+    std::string time;
     double open;
     double high;
     double low;
@@ -22,8 +20,8 @@ struct Candle {
 };
 
 // Function to calculate SMA
-vector<double> calculateSMA(const vector<Candle>& candles, int smaPeriod) {
-    vector<double> smaValues;
+std::vector<double> calculateSMA(const std::vector<Candle>& candles, int smaPeriod) {
+    std::vector<double> smaValues;
     for (int i = smaPeriod - 1; i < candles.size(); ++i) {
         double sum = 0;
         for (int j = i - smaPeriod + 1; j <= i; ++j) {
@@ -35,8 +33,8 @@ vector<double> calculateSMA(const vector<Candle>& candles, int smaPeriod) {
 }
 
 // Function to generate candlesticks from price data
-vector<Candle> generateCandlesticks(const vector<PriceData>& priceData, int candleLengthMinutes) {
-    vector<Candle> candles;
+std::vector<Candle> generateCandlesticks(const std::vector<PriceData>& priceData, int candleLengthMinutes) {
+    std::vector<Candle> candles;
     int dataPointsPerCandle = candleLengthMinutes;
 
     for (size_t i = 0; i < priceData.size(); i += dataPointsPerCandle) {
@@ -48,9 +46,9 @@ vector<Candle> generateCandlesticks(const vector<PriceData>& priceData, int cand
         candle.close = priceData[i + dataPointsPerCandle - 1].price; // Assuming complete data for each candle
         candle.volume = 0; // You'll need to calculate volume based on your data
 
-        for (size_t j = i; j < min(i + dataPointsPerCandle, priceData.size()); ++j) {
-            candle.high = max(candle.high, priceData[j].price);
-            candle.low = min(candle.low, priceData[j].price);
+        for (size_t j = i; j < std::min(i + dataPointsPerCandle, priceData.size()); ++j) {
+            candle.high = std::max(candle.high, priceData[j].price);
+            candle.low = std::min(candle.low, priceData[j].price);
             // Calculate volume here if your data provides it
         }
         candles.push_back(candle);
@@ -59,25 +57,25 @@ vector<Candle> generateCandlesticks(const vector<PriceData>& priceData, int cand
 }
 
 int main() {
-    string inputFilename = "ETHUSDT_1.csv";
+    std::string inputFilename = "D:\\repos\\Vkg_test\\ETHUSDT_1.csv";
     int candleLengthMinutes = 5; // Example value, get this from user input
     int smaPeriod = 20;         // Example value, get this from user input
 
-    ifstream inputFile(inputFilename);
+    std::ifstream inputFile(inputFilename);
     if (!inputFile.is_open()) {
-        cerr << "Error opening input file: " << inputFilename << endl;
+        std::cerr << "Error opening input file: " << inputFilename << std::endl;
         return 1;
     }
 
-    vector<PriceData> priceData;
-    string line;
-    getline(inputFile, line); // Skip header line if present
+    std::vector<PriceData> priceData;
+    std::string line;
+    std::getline(inputFile, line); // Skip header line if present
 
-    while (getline(inputFile, line)) {
-        stringstream ss(line);
-        string timestamp, priceStr;
-        getline(ss, timestamp, ',');
-        getline(ss, priceStr, ','); 
+    while (std::getline(inputFile, line)) {
+        std::stringstream ss(line);
+        std::string timestamp, priceStr;
+        std::getline(ss, timestamp, ',');
+        std::getline(ss, priceStr, ','); 
 
         PriceData data;
         data.timestamp = timestamp;
@@ -87,34 +85,34 @@ int main() {
     inputFile.close();
 
     // Generate candlesticks
-    vector<Candle> candles = generateCandlesticks(priceData, candleLengthMinutes);
+    std::vector<Candle> candles = generateCandlesticks(priceData, candleLengthMinutes);
 
     // Calculate SMA
-    vector<double> smaValues = calculateSMA(candles, smaPeriod);
+    std::vector<double> smaValues = calculateSMA(candles, smaPeriod);
 
     // Write candlesticks to CSV file
-    ofstream candleOutput("candlesticks.csv");
-    candleOutput << "Time,Open,High,Low,Close,Volume" << endl;
+    std::ofstream candleOutput("candlesticks.csv");
+    candleOutput << "Time,Open,High,Low,Close,Volume" << std::endl;
     for (const auto& candle : candles) {
         candleOutput << candle.time << ","
                      << candle.open << ","
                      << candle.high << ","
                      << candle.low << ","
                      << candle.close << ","
-                     << candle.volume << endl;
+                     << candle.volume << std::endl;
     }
     candleOutput.close();
 
     // Write SMA to CSV file
-    ofstream smaOutput("sma.csv");
-    smaOutput << "Time,SMA" << endl;
+    std::ofstream smaOutput("D:\\repos\\Vkg_test\\sma.csv");
+    smaOutput << "Time,SMA" << std::endl;
     for (size_t i = 0; i < smaValues.size(); ++i) {
-        smaOutput << candles[i + smaPeriod - 1].time << ","  // Align SMA with the corresponding candle
-                  << smaValues[i] << endl;
+        smaOutput << candles[i + smaPeriod - 1].time << ","  // Align SMA with the corresponding candleg
+                  << smaValues[i] << std::endl;
     }
     smaOutput.close();
 
-    cout << "Candlesticks and SMA calculated and written to CSV files." << endl;
+    std::cout << "Candlesticks and SMA calculated and written to CSV files." << std::endl;
 
     return 0;
 }
