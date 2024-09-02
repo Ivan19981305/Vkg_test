@@ -57,7 +57,7 @@ std::vector<Candle> generateCandlesticks(const std::vector<PriceData>& priceData
 }
 
 int main() {
-    std::string inputFilename = "D:\\repos\\Vkg_test\\ETHUSDT_1.csv";
+    std::string inputFilename = "ETHUSDT_1.csv";
     int candleLengthMinutes = 5; // Example value, get this from user input
     int smaPeriod = 20;         // Example value, get this from user input
 
@@ -104,7 +104,7 @@ int main() {
     candleOutput.close();
 
     // Write SMA to CSV file
-    std::ofstream smaOutput("D:\\repos\\Vkg_test\\sma.csv");
+    std::ofstream smaOutput("sma.csv");
     smaOutput << "Time,SMA" << std::endl;
     for (size_t i = 0; i < smaValues.size(); ++i) {
         smaOutput << candles[i + smaPeriod - 1].time << ","  // Align SMA with the corresponding candleg
