@@ -5,13 +5,15 @@
 #include <algorithm>
 #include <iomanip>
 
+
 struct PriceData {
-    std::string timestamp;
+    int time;         // Время в формате Unix timestamp
     double price;
+    double volume;
 };
 
 struct Candle {
-    std::string time;
+    int time;         // Время в формате Unix timestamp
     double open;
     double high;
     double low;
@@ -19,47 +21,119 @@ struct Candle {
     double volume;
 };
 
-// Function to calculate SMA
-std::vector<double> calculateSMA(const std::vector<Candle>& candles, int smaPeriod) {
-    std::vector<double> smaValues;
-    for (int i = smaPeriod - 1; i < candles.size(); ++i) {
-        double sum = 0;
-        for (int j = i - smaPeriod + 1; j <= i; ++j) {
-            sum += candles[j].close;
-        }
-        smaValues.push_back(sum / smaPeriod);
+struct SMA {
+    int time;           // Время в формате Unix timestamp
+    double sma;         // Значение SMA
+};
+
+// Функция для преобразования Unix timestamp в строку ISO 8601
+std::string timestamp_to_iso8601(int timestamp) {
+    time_t tt = timestamp;
+    tm tm = *gmtime(&tt);
+    char buffer[80];
+    strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%S", &tm);
+    return std::string(buffer);
+}
+
+// Функция для расчета SMA
+std::vector<SMA> calculateSMA(const std::vector<Candle>& candles, int smaPeriod) {
+    std::vector<SMA> smaValues;                  // Вектор для хранения значений SMA
+    std::vector<double> smaCalculate(smaPeriod); // Вектор для расчета SMA
+    int calculated = 0;                          // Количество рассчитанных значений SMA
+    double total;                                // Сумма цен закрытия для расчета SMA
+
+    SMA currentSMA;
+
+    if (!smaPeriod)
+        return smaValues;
+
+    if (candles.size())
+    {   // Инициализация первого значения SMA
+        currentSMA.time = candles[0].time;
+        currentSMA.sma = candles[0].close;
+
+        smaCalculate[calculated] = currentSMA.sma;
+        calculated++;
+        
+        total = currentSMA.sma;
+
+        smaValues.push_back(currentSMA);
     }
+
+    // Расчет SMA для остальных свечей
+    for (size_t i = 1; i < candles.size(); ++i)
+    {
+        // Проверка, прошёл ли хотя бы день
+        if (candles[i].time - currentSMA.time >= 60 * 60 * 24)
+        {
+            for(int j = currentSMA.time; j < candles[i].time; j += 60 * 60 * 24)
+            {
+                // Добавление значений SMA за прошедшие дни
+                total += candles[i - 1].close;
+                if (calculated < smaPeriod)
+                {
+                    smaCalculate[calculated] = candles[i - 1].close;
+                    calculated++;
+                }
+                else
+                {
+                    total -= smaCalculate[calculated % smaPeriod];
+                    smaCalculate[calculated % smaPeriod] = candles[i - 1].close;
+                    calculated++;
+                }
+
+                currentSMA.time = currentSMA.time + 60 * 60 * 24;
+                currentSMA.sma = total / std::min(calculated, smaPeriod);
+
+                smaValues.push_back(currentSMA);
+            }          
+        }
+    }
+
     return smaValues;
 }
 
-// Function to generate candlesticks from price data
+// Функция для генерации свечей из данных о ценахa
 std::vector<Candle> generateCandlesticks(const std::vector<PriceData>& priceData, int candleLengthMinutes) {
     std::vector<Candle> candles;
-    int dataPointsPerCandle = candleLengthMinutes;
+    
+    Candle currentCandle;
+    currentCandle.time = 0; // Инициализация времени начала свечи
 
-    for (size_t i = 0; i < priceData.size(); i += dataPointsPerCandle) {
-        Candle candle;
-        candle.time = priceData[i].timestamp; // Start time of the candle
-        candle.open = priceData[i].price;
-        candle.high = priceData[i].price;
-        candle.low = priceData[i].price;
-        candle.close = priceData[i + dataPointsPerCandle - 1].price; // Assuming complete data for each candle
-        candle.volume = 0; // You'll need to calculate volume based on your data
+    for (size_t i = 0; i < priceData.size(); ++i) {
+        // Проверка, нужно ли начать новую свечу
+        if (priceData[i].time - currentCandle.time >= 60 * candleLengthMinutes)
+        {
+            if (currentCandle.time)
+                candles.push_back(currentCandle); // Добавление предыдущей свечи в вектор
 
-        for (size_t j = i; j < std::min(i + dataPointsPerCandle, priceData.size()); ++j) {
-            candle.high = std::max(candle.high, priceData[j].price);
-            candle.low = std::min(candle.low, priceData[j].price);
-            // Calculate volume here if your data provides it
+            currentCandle.time = priceData[i].time;
+            currentCandle.open = priceData[i].price;
+            currentCandle.high = priceData[i].price;
+            currentCandle.low = priceData[i].price;
+            currentCandle.close = priceData[i].price;
+            currentCandle.volume = priceData[i].volume;
         }
-        candles.push_back(candle);
+        else
+        {   // Обновление значений текущей свечи
+            currentCandle.high = std::max(currentCandle.low, priceData[i].price);
+            currentCandle.low = std::min(currentCandle.low, priceData[i].price);
+            currentCandle.close = priceData[i].price;
+            currentCandle.volume += priceData[i].volume;
+        }        
     }
+    
+    // Добавление последней свечи
+    if (priceData.size())
+        candles.push_back(currentCandle);
+
     return candles;
 }
 
 int main() {
     std::string inputFilename = "ETHUSDT_1.csv";
-    int candleLengthMinutes = 5; // Example value, get this from user input
-    int smaPeriod = 20;         // Example value, get this from user input
+    int candleLengthMinutes = 5; // Длина свечи в минутах, пример
+    int smaPeriod = 20;          // Период SMA, пример
 
     std::ifstream inputFile(inputFilename);
     if (!inputFile.is_open()) {
@@ -67,34 +141,42 @@ int main() {
         return 1;
     }
 
-    std::vector<PriceData> priceData;
+    std::vector<PriceData> priceData; // Вектор для хранения данных о ценах
     std::string line;
-    std::getline(inputFile, line); // Skip header line if present
+    std::getline(inputFile, line); // Пропуск заголовка
 
+    //Парсим входной csv
     while (std::getline(inputFile, line)) {
         std::stringstream ss(line);
-        std::string timestamp, priceStr;
-        std::getline(ss, timestamp, ',');
-        std::getline(ss, priceStr, ','); 
+        std::string timeString, priceString, volumeString;
+        std::getline(ss, timeString, ',');
+        std::getline(ss, priceString, ','); 
+        std::getline(ss, volumeString); 
 
         PriceData data;
-        data.timestamp = timestamp;
-        data.price = stod(priceStr); 
+        data.time = stoi(timeString);
+        data.price = stod(priceString); 
+        data.volume = stod(volumeString); 
         priceData.push_back(data);
     }
     inputFile.close();
 
-    // Generate candlesticks
+    // Сортировка данных по времени
+    std::sort(priceData.begin(), priceData.end(), [](const PriceData& a, const PriceData& b) {
+    return a.time < b.time;
+  });
+
+    // Генерация свечей
     std::vector<Candle> candles = generateCandlesticks(priceData, candleLengthMinutes);
 
-    // Calculate SMA
-    std::vector<double> smaValues = calculateSMA(candles, smaPeriod);
+    // Расчет SMA
+    std::vector<SMA> smaValues = calculateSMA(candles, smaPeriod);
 
-    // Write candlesticks to CSV file
+    // Запись свечей в CSV файл
     std::ofstream candleOutput("candlesticks.csv");
     candleOutput << "Time,Open,High,Low,Close,Volume" << std::endl;
     for (const auto& candle : candles) {
-        candleOutput << candle.time << ","
+        candleOutput << timestamp_to_iso8601(candle.time) << ","
                      << candle.open << ","
                      << candle.high << ","
                      << candle.low << ","
@@ -103,16 +185,16 @@ int main() {
     }
     candleOutput.close();
 
-    // Write SMA to CSV file
+    // Запись SMA в CSV файл
     std::ofstream smaOutput("sma.csv");
     smaOutput << "Time,SMA" << std::endl;
     for (size_t i = 0; i < smaValues.size(); ++i) {
-        smaOutput << candles[i + smaPeriod - 1].time << ","  // Align SMA with the corresponding candleg
-                  << smaValues[i] << std::endl;
+        smaOutput << timestamp_to_iso8601(smaValues[i].time) << ","  
+                  << smaValues[i].sma << std::endl;
     }
     smaOutput.close();
 
-    std::cout << "Candlesticks and SMA calculated and written to CSV files." << std::endl;
+    std::cout << "Свечи и SMA рассчитаны и записаны в CSV файлы." << std::endl;
 
     return 0;
 }
